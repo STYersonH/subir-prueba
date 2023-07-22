@@ -1,0 +1,102 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["mongodb"]
+}
+
+datasource db {
+  //provider = "postgresql"
+  provider = "mongodb"
+  url      = env("DATABASE_URL")
+  //url      = "mongodb+srv://yerson:yerson@cluster0.ne2nbxa.mongodb.net/"
+}
+
+// Definir la estructura de la tabla de la base de datos para el usuario
+// ---------------------------------------------------------------------
+// @id: indica que es el campo de identificación
+// @default(auto()): indica que el campo se genera automáticamente
+// @map("_id"): indica que el campo se llama _id en la base de datos
+// @db.ObjectId: indica que el campo es de tipo ObjectId en la base de datos
+// @unique: indica que el campo es único
+// @default(now()): indica que el campo se genera automáticamente con la fecha actual
+// @updatedAt: indica que el campo se actualiza automáticamente con la fecha actual
+// :? indica que el campo es opcional
+
+// @db.ObjectId: indica que el campo es de tipo ObjectId en la base de datos, donde un ObjectId es un identificador único de 12 bytes que MongoDB genera automáticamente cuando se inserta un documento en una colección. El ObjectId se asigna al campo _id del documento insertado.
+// @relation: indica que el campo es una relación con otra tabla
+// @relation(fields: [conversationIds], references: [id]) indica que el campo conversationIds es una relación con el campo id de la tabla Conversation
+
+// @relation("Seen", fields: [seenMessageIds], references: [id]) indica que el campo seenMessageIds es una relación con el campo id de la tabla Message y que la relación se llama "Seen"
+model User {
+  id             String    @id @default(auto()) @map("_id") @db.ObjectId
+  name           String?
+  email          String?   @unique
+  emailVerified  DateTime?
+  image          String?
+  hashedPassword String?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  conversationIds String[]       @db.ObjectId
+  conversations   Conversation[] @relation(fields: [conversationIds], references: [id])
+
+  seenMessageIds String[]  @db.ObjectId
+  seenMessages   Message[] @relation("Seen", fields: [seenMessageIds], references: [id])
+
+  accounts Account[]
+  messages Message[]
+}
+
+// @db.String: indica que el campo es de tipo String en la base de datos
+// @relation: indica que el campo es una relación con otra tabla
+// @@unique([provider, providerAccountId]): indica que la combinación de los campos provider y providerAccountId es única
+model Account {
+  id                String  @id @default(auto()) @map("_id") @db.ObjectId
+  userId            String  @db.ObjectId
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.String
+  access_token      String? @db.String
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Conversation {
+  id            String   @id @default(auto()) @map("_id") @db.ObjectId
+  createdAt     DateTime @default(now())
+  lastMessageAt DateTime @default(now())
+  name          String?
+  isGroup       Boolean?
+
+  messageIds String[]  @db.ObjectId
+  messages   Message[]
+
+  userIds String[] @db.ObjectId
+  users   User[]   @relation(fields: [userIds], references: [id])
+}
+
+model Message {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  body      String?
+  image     String?
+  createdAt DateTime @default(now())
+
+  seenIds String[] @db.ObjectId
+  seen    User[]   @relation("Seen", fields: [seenIds], references: [id])
+
+  conversationId String       @db.ObjectId
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  senderId String @db.ObjectId
+  sender   User   @relation(fields: [senderId], references: [id], onDelete: Cascade)
+}
